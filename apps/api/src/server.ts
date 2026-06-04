@@ -11,8 +11,12 @@ type PermissionKey =
   | 'records.export'
   | 'users.manage'
   | 'roles.manage'
+  | 'notifications.receive'
+  | 'reviews.approve'
 type RecordStatus = 'todo' | 'doing' | 'done'
 type Priority = 'high' | 'normal' | 'low'
+type NotificationStatus = 'unread' | 'read' | 'handled'
+type ReviewTaskStatus = 'pending' | 'approved' | 'rejected' | 'transferred'
 
 interface User {
   id: string
@@ -36,6 +40,26 @@ interface RecordItem {
   updatedAt: string
 }
 
+interface NotificationItem {
+  id: string
+  title: string
+  message: string
+  recordId: string
+  receiverId: string
+  status: NotificationStatus
+  createdAt: string
+}
+
+interface ReviewTask {
+  id: string
+  recordId: string
+  assigneeId: string
+  status: ReviewTaskStatus
+  comment: string
+  createdAt: string
+  handledAt: string
+}
+
 const roles: Record<RoleKey, { permissions: PermissionKey[] }> = {
   admin: {
     permissions: [
@@ -47,13 +71,23 @@ const roles: Record<RoleKey, { permissions: PermissionKey[] }> = {
       'records.export',
       'users.manage',
       'roles.manage',
+      'notifications.receive',
+      'reviews.approve',
     ],
   },
   operator: {
-    permissions: ['dashboard.view', 'records.view', 'records.create', 'records.update', 'records.export'],
+    permissions: [
+      'dashboard.view',
+      'records.view',
+      'records.create',
+      'records.update',
+      'records.export',
+      'notifications.receive',
+      'reviews.approve',
+    ],
   },
   viewer: {
-    permissions: ['dashboard.view', 'records.view'],
+    permissions: ['dashboard.view', 'records.view', 'notifications.receive'],
   },
 }
 
@@ -68,6 +102,30 @@ let records: RecordItem[] = [
   { id: 'r-2', title: '采购合同备案', category: '合同管理', department: '资产处', owner: '李娜', status: 'todo', priority: 'normal', dueDate: '2026-06-12', amount: 6, updatedAt: '2026-06-03' },
   { id: 'r-3', title: '培训资料归档', category: '档案管理', department: '办公室', owner: '王磊', status: 'done', priority: 'low', dueDate: '2026-06-02', amount: 32, updatedAt: '2026-06-02' },
   { id: 'r-4', title: '整改事项复核', category: '整改闭环', department: '督查室', owner: '赵婷', status: 'doing', priority: 'high', dueDate: '2026-06-08', amount: 11, updatedAt: '2026-06-04' },
+]
+
+let notifications: NotificationItem[] = [
+  {
+    id: 'n-1',
+    title: '整改事项待审核',
+    message: '整改事项复核需要手机端审核确认。',
+    recordId: 'r-4',
+    receiverId: 'u-2',
+    status: 'unread',
+    createdAt: '2026-06-04',
+  },
+]
+
+let reviewTasks: ReviewTask[] = [
+  {
+    id: 'rt-1',
+    recordId: 'r-4',
+    assigneeId: 'u-2',
+    status: 'pending',
+    comment: '',
+    createdAt: '2026-06-04',
+    handledAt: '',
+  },
 ]
 
 const statusCodeText: Record<number, string> = {
@@ -141,6 +199,18 @@ function dashboardPayload() {
   }
 }
 
+function queryUserId(url: URL) {
+  return url.searchParams.get('userId') ?? 'u-2'
+}
+
+function enrichReviewTask(task: ReviewTask) {
+  return {
+    ...task,
+    record: records.find((record) => record.id === task.recordId) ?? null,
+    assignee: users.find((user) => user.id === task.assigneeId) ? toPublicUser(users.find((user) => user.id === task.assigneeId) as User) : null,
+  }
+}
+
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? '127.0.0.1'}`)
   const method = request.method ?? 'GET'
@@ -203,6 +273,138 @@ const server = createServer(async (request, response) => {
 
     if (method === 'GET' && url.pathname === '/api/records') {
       sendJson(response, 200, { records })
+      return
+    }
+
+    if (method === 'GET' && url.pathname === '/api/notifications') {
+      const receiverId = queryUserId(url)
+      sendJson(response, 200, {
+        notifications: notifications.filter((notification) => notification.receiverId === receiverId),
+      })
+      return
+    }
+
+    if (method === 'POST' && url.pathname === '/api/notifications') {
+      const body = await readJson<{ title?: string; message?: string; recordId?: string; receiverId?: string }>(request)
+      if (!body.title || !body.message || !body.recordId || !body.receiverId) {
+        sendJson(response, 400, { message: 'title、message、recordId、receiverId 必填' })
+        return
+      }
+      const notification: NotificationItem = {
+        id: randomUUID(),
+        title: body.title,
+        message: body.message,
+        recordId: body.recordId,
+        receiverId: body.receiverId,
+        status: 'unread',
+        createdAt: today(),
+      }
+      const reviewTask: ReviewTask = {
+        id: randomUUID(),
+        recordId: body.recordId,
+        assigneeId: body.receiverId,
+        status: 'pending',
+        comment: '',
+        createdAt: today(),
+        handledAt: '',
+      }
+      notifications.unshift(notification)
+      reviewTasks.unshift(reviewTask)
+      sendJson(response, 201, { notification, reviewTask })
+      return
+    }
+
+    const notificationReadMatch = url.pathname.match(/^\/api\/notifications\/([^/]+)\/read$/)
+    if (notificationReadMatch && method === 'PUT') {
+      const notification = notifications.find((item) => item.id === notificationReadMatch[1])
+      if (!notification) {
+        sendJson(response, 404, { message: '通知不存在' })
+        return
+      }
+      notification.status = 'read'
+      sendJson(response, 200, { notification })
+      return
+    }
+
+    if (method === 'GET' && url.pathname === '/api/review-tasks') {
+      const assigneeId = queryUserId(url)
+      sendJson(response, 200, {
+        reviewTasks: reviewTasks.filter((task) => task.assigneeId === assigneeId && task.status === 'pending').map(enrichReviewTask),
+      })
+      return
+    }
+
+    const reviewTaskMatch = url.pathname.match(/^\/api\/review-tasks\/([^/]+)$/)
+    if (reviewTaskMatch && method === 'GET') {
+      const task = reviewTasks.find((item) => item.id === reviewTaskMatch[1])
+      if (!task) {
+        sendJson(response, 404, { message: '审核任务不存在' })
+        return
+      }
+      sendJson(response, 200, { reviewTask: enrichReviewTask(task) })
+      return
+    }
+
+    const approveMatch = url.pathname.match(/^\/api\/review-tasks\/([^/]+)\/approve$/)
+    if (approveMatch && method === 'POST') {
+      const body = await readJson<{ comment?: string }>(request)
+      const task = reviewTasks.find((item) => item.id === approveMatch[1])
+      if (!task) {
+        sendJson(response, 404, { message: '审核任务不存在' })
+        return
+      }
+      if (task.status !== 'pending') {
+        sendJson(response, 400, { message: '审核任务已处理' })
+        return
+      }
+      task.status = 'approved'
+      task.comment = body.comment?.trim() || '同意'
+      task.handledAt = today()
+      notifications = notifications.map((notification) => (
+        notification.recordId === task.recordId && notification.receiverId === task.assigneeId
+          ? { ...notification, status: 'handled' }
+          : notification
+      ))
+      sendJson(response, 200, { reviewTask: enrichReviewTask(task) })
+      return
+    }
+
+    const rejectMatch = url.pathname.match(/^\/api\/review-tasks\/([^/]+)\/reject$/)
+    if (rejectMatch && method === 'POST') {
+      const body = await readJson<{ comment?: string }>(request)
+      const comment = body.comment?.trim()
+      const task = reviewTasks.find((item) => item.id === rejectMatch[1])
+      if (!task) {
+        sendJson(response, 404, { message: '审核任务不存在' })
+        return
+      }
+      if (!comment) {
+        sendJson(response, 400, { message: '驳回必须填写意见' })
+        return
+      }
+      if (task.status !== 'pending') {
+        sendJson(response, 400, { message: '审核任务已处理' })
+        return
+      }
+      task.status = 'rejected'
+      task.comment = comment
+      task.handledAt = today()
+      notifications = notifications.map((notification) => (
+        notification.recordId === task.recordId && notification.receiverId === task.assigneeId
+          ? { ...notification, status: 'handled' }
+          : notification
+      ))
+      sendJson(response, 200, { reviewTask: enrichReviewTask(task) })
+      return
+    }
+
+    if (method === 'GET' && url.pathname === '/api/review-history') {
+      const assigneeId = queryUserId(url)
+      sendJson(response, 200, {
+        reviewTasks: reviewTasks
+          .filter((task) => task.assigneeId === assigneeId && task.status !== 'pending')
+          .map(enrichReviewTask),
+      })
       return
     }
 

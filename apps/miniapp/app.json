@@ -1,0 +1,29 @@
+{
+  "pages": [
+    "pages/notifications/index",
+    "pages/review/index",
+    "pages/history/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "监管审核",
+    "navigationBarBackgroundColor": "#17211f",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#eef3f0"
+  },
+  "tabBar": {
+    "color": "#6a7673",
+    "selectedColor": "#1f8a70",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/notifications/index",
+        "text": "待办"
+      },
+      {
+        "pagePath": "pages/history/index",
+        "text": "历史"
+      }
+    ]
+  }
+}

@@ -10,6 +10,8 @@ type PermissionKey =
   | 'records.export'
   | 'users.manage'
   | 'roles.manage'
+  | 'notifications.receive'
+  | 'reviews.approve'
 type PageKey = 'dashboard' | 'records' | 'users' | 'roles'
 type RecordStatus = 'todo' | 'doing' | 'done'
 type Priority = 'high' | 'normal' | 'low'
@@ -64,6 +66,8 @@ const permissionLabels: Record<PermissionKey, string> = {
   'records.export': '导出业务数据',
   'users.manage': '管理用户角色',
   'roles.manage': '配置角色权限',
+  'notifications.receive': '接收通知和待办',
+  'reviews.approve': '手机端审核',
 }
 
 const roleNames: Record<RoleKey, string> = {
@@ -103,10 +107,18 @@ const defaultState: AppState = {
       permissions: Object.keys(permissionLabels) as PermissionKey[],
     },
     operator: {
-      permissions: ['dashboard.view', 'records.view', 'records.create', 'records.update', 'records.export'],
+      permissions: [
+        'dashboard.view',
+        'records.view',
+        'records.create',
+        'records.update',
+        'records.export',
+        'notifications.receive',
+        'reviews.approve',
+      ],
     },
     viewer: {
-      permissions: ['dashboard.view', 'records.view'],
+      permissions: ['dashboard.view', 'records.view', 'notifications.receive'],
     },
   },
   users: [

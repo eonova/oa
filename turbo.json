@@ -9,6 +9,9 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
+    "@oa/miniapp#build": {
+      "outputs": []
+    },
     "typecheck": {
       "dependsOn": ["^build"],
       "outputs": []

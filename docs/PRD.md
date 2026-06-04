@@ -14,6 +14,7 @@
 
 - 前端使用 Vue 3 + TSX + Vite+ + Tailwind CSS，提供后台工作台界面。
 - 后端使用 Node.js + TypeScript，提供基础 REST API。
+- 小程序端用于接收 PC 端产生的通知和待办，并支持手机端审核。
 - 根目录使用 pnpm workspace + Turbo 管理多应用任务。
 - 初期数据以内存和本地种子数据为主，先验证产品流程和权限模型。
 - 后续可将内存数据替换为数据库，将演示级登录替换为正式 token/session 鉴权。
@@ -25,6 +26,7 @@
 3. 支持登录、注册、角色权限、数据看板、台账 CRUD、CSV 导出。
 4. 建立 Node + TypeScript 后端 API 基础。
 5. 建立 monorepo 工程结构，支持前后端统一安装、检查、构建和开发启动。
+6. 支持 PC 端产生通知/待办，小程序端接收并处理审核。
 
 ## Non-Goals
 
@@ -33,6 +35,7 @@
 3. 不在当前版本实现复杂组织架构、流程审批、消息通知、附件上传。
 4. 不在当前版本复刻原系统全部页面和交互。
 5. 不在当前版本处理生产部署、监控、审计日志和合规加固。
+6. 当前版本先采用微信原生小程序骨架，uni-app、Taro 等跨端方案暂不纳入。
 
 ## Users And Roles
 
@@ -48,6 +51,10 @@
 
 可查看看板和台账，不可新增、编辑、删除、导出，不可管理用户和权限。
 
+### 手机审核人
+
+通过小程序接收 PC 端通知和待办，可查看审核详情，并在手机端执行通过、驳回或转交等审核动作。
+
 ## Permissions
 
 | 权限标识 | 含义 | 管理员 | 经办人 | 只读用户 |
@@ -60,6 +67,8 @@
 | `records.export` | 导出业务数据 | 是 | 是 | 否 |
 | `users.manage` | 管理用户角色 | 是 | 否 | 否 |
 | `roles.manage` | 配置角色权限 | 是 | 否 | 否 |
+| `notifications.receive` | 接收通知和待办 | 是 | 是 | 是 |
+| `reviews.approve` | 手机端审核 | 是 | 是 | 否 |
 
 ## User Stories
 
@@ -88,6 +97,14 @@
 23. As an 开发者, I want to 用统一命令执行检查和构建, so that 我可以快速确认项目健康。
 24. As an 开发者, I want to 后端提供 REST API, so that 后续前端可以切换到真实接口。
 25. As an 开发者, I want to 后端以 TypeScript 编写, so that 数据结构和接口逻辑更容易维护。
+26. As an PC 端经办人, I want to 提交需要审核的事项, so that 手机端审核人可以及时处理。
+27. As an 手机审核人, I want to 在小程序收到待办通知, so that 我不需要一直登录 PC 系统。
+28. As an 手机审核人, I want to 查看待审核事项详情, so that 我可以判断是否通过。
+29. As an 手机审核人, I want to 在手机端通过审核, so that 业务可以继续流转。
+30. As an 手机审核人, I want to 在手机端驳回审核并填写意见, so that 经办人可以按原因修改。
+31. As an 手机审核人, I want to 查看历史审核记录, so that 我可以追踪自己处理过的事项。
+32. As an 管理员, I want to 查看通知发送和审核处理状态, so that 我可以监督事项是否及时闭环。
+33. As an 开发者, I want to 后端提供通知和审核 API, so that PC 端、小程序端可以通过同一套服务协作。
 
 ## Functional Requirements
 
@@ -127,6 +144,19 @@
 6. 系统必须支持按状态筛选台账。
 7. 系统必须支持按部门筛选台账。
 8. 系统必须支持 CSV 导出。
+
+### Mini Program Notifications And Reviews
+
+1. PC 端必须可以为需要处理的事项生成通知或待办。
+2. 后端必须保存通知状态，包括未读、已读、已处理。
+3. 小程序端必须可以拉取当前用户的通知和待办列表。
+4. 小程序端必须可以查看待办详情。
+5. 小程序端必须支持审核通过。
+6. 小程序端必须支持审核驳回，并要求填写驳回意见。
+7. 小程序端必须支持查看自己的审核历史。
+8. PC 端必须可以查看通知发送状态和审核结果。
+9. 后端必须记录审核动作、审核人、审核时间和审核意见。
+10. 小程序端必须只展示当前用户有权限处理的待办。
 
 ### Monorepo
 
@@ -169,6 +199,30 @@
 | `amount` | number | 数量 |
 | `updatedAt` | string | 更新日期 |
 
+### Notification
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | string | 通知 ID |
+| `title` | string | 通知标题 |
+| `message` | string | 通知内容 |
+| `recordId` | string | 关联台账 ID |
+| `receiverId` | string | 接收人 ID |
+| `status` | `unread` / `read` / `handled` | 通知状态 |
+| `createdAt` | string | 创建时间 |
+
+### ReviewTask
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | string | 审核任务 ID |
+| `recordId` | string | 关联台账 ID |
+| `assigneeId` | string | 审核人 ID |
+| `status` | `pending` / `approved` / `rejected` / `transferred` | 审核状态 |
+| `comment` | string | 审核意见 |
+| `createdAt` | string | 创建时间 |
+| `handledAt` | string | 处理时间 |
+
 ## API Contract
 
 基础地址：`http://127.0.0.1:3001`
@@ -185,6 +239,14 @@
 | POST | `/api/records` | 新增台账 |
 | PUT | `/api/records/:id` | 更新台账 |
 | DELETE | `/api/records/:id` | 删除台账 |
+| GET | `/api/notifications` | 当前用户通知列表 |
+| POST | `/api/notifications` | PC 端创建通知/待办 |
+| PUT | `/api/notifications/:id/read` | 标记通知已读 |
+| GET | `/api/review-tasks` | 当前用户审核任务列表 |
+| GET | `/api/review-tasks/:id` | 审核任务详情 |
+| POST | `/api/review-tasks/:id/approve` | 审核通过 |
+| POST | `/api/review-tasks/:id/reject` | 审核驳回 |
+| GET | `/api/review-history` | 当前用户审核历史 |
 
 ## Implementation Decisions
 
@@ -200,6 +262,9 @@
 10. 管理员角色固定具备全部权限，避免误操作导致系统无管理员能力。
 11. 经办人默认不可删除数据，降低误删风险。
 12. 只读用户默认只能查看看板和台账。
+13. 小程序需求按“通知”和“审核任务”两个模型拆分，避免把消息提醒和业务审批混在同一张概念表里。
+14. PC 端负责发起通知和查看处理结果，小程序端负责接收通知和完成移动审核。
+15. 小程序先采用微信原生结构放入 monorepo，后端接口仍按平台无关的 REST 契约设计。
 
 ## Testing Decisions
 
@@ -209,8 +274,10 @@
 4. 台账模块应测试新增、编辑、删除、筛选和导出行为。
 5. 看板模块应测试统计结果是否随台账变化更新。
 6. Monorepo 应至少在 CI 或本地脚本中执行 `pnpm run typecheck` 和 `pnpm run build`。
-7. 后续可引入 Vitest 测 API 纯函数和前端权限计算。
-8. 后续可引入 Playwright 测端到端登录、台账和权限流程。
+7. 通知模块应测试通知创建、列表拉取、已读标记和权限过滤。
+8. 审核模块应测试通过、驳回、意见必填、历史记录和重复处理保护。
+9. 后续可引入 Vitest 测 API 纯函数和前端权限计算。
+10. 后续可引入 Playwright 测端到端登录、台账、权限、通知和审核流程。
 
 ## Acceptance Criteria
 
@@ -224,16 +291,22 @@
 8. 经办人不可访问用户管理和权限配置。
 9. 只读用户不可新增、编辑、删除或导出台账。
 10. 台账 CRUD API 能返回预期状态码和响应。
+11. PC 端创建通知后，小程序端可在待办列表中看到。
+12. 小程序端审核通过后，PC 端可查看处理结果。
+13. 小程序端审核驳回时必须提交审核意见。
+14. 无权限用户不可处理他人的审核任务。
 
 ## Out Of Scope
 
 1. 生产级认证授权。
 2. 数据库建模和迁移。
-3. 审批流、流程引擎和消息通知。
+3. 复杂审批流、流程引擎和外部通知通道。
 4. 附件上传、预览和下载。
 5. 操作审计和合规报表。
 6. 多租户、组织架构和部门层级权限。
 7. 与原 OA 系统的数据同步。
+8. 小程序订阅消息模板、服务号推送、短信推送等外部通知通道。
+9. 复杂多级审批流、会签、加签、条件分支。
 
 ## Milestones
 
@@ -254,14 +327,22 @@
 - Web 台账 CRUD 接入 API。
 - Web 看板统计接入 API。
 
-### M4：持久化与鉴权
+### M4：小程序通知与审核
+
+- 采用微信原生小程序作为当前技术方案。
+- 建立 `apps/miniapp` workspace。
+- 增加通知和审核任务 API。
+- 小程序接收 PC 端通知。
+- 小程序完成审核通过和驳回。
+
+### M5：持久化与鉴权
 
 - 接入数据库。
 - 接入密码加密。
 - 接入 token/session。
 - 增加 API 权限中间件。
 
-### M5：测试与部署
+### M6：测试与部署
 
 - 增加 API 单元/集成测试。
 - 增加前端核心流程 E2E。
@@ -275,6 +356,11 @@
 4. 是否需要导入 Excel/CSV？
 5. 是否需要审批流或整改闭环状态机？
 6. 是否需要保留与原系统的菜单和字段命名一致性？
+7. 当前微信原生小程序是否满足后续维护诉求，还是需要迁移到 uni-app/Taro？
+8. 小程序通知依赖站内待办轮询、微信订阅消息，还是企业微信/短信等外部推送？
+9. 手机审核是单级审核，还是多级审批流？
+10. 审核通过后是否需要自动修改台账状态？
+11. 审核驳回后是否回到经办人修改，还是直接结束？
 
 ## Further Notes
 

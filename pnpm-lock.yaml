@@ -24,6 +24,15 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
+  apps/miniapp:
+    devDependencies:
+      miniprogram-api-typings:
+        specifier: ^5.2.1
+        version: 5.2.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
   apps/web:
     dependencies:
       vue:
@@ -1258,6 +1267,9 @@ packages:
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
 
+  miniprogram-api-typings@5.2.1:
+    resolution: {integrity: sha512-fbB2hapWx/vaXN4olDJEIS+OOkCjHlHLX0WG74XUJqhm0VJ8dpleBdgagHATjEpcbcH2z7AV8PjpwYp9dylfYA==}
+
   mrmime@2.0.1:
     resolution: {integrity: sha512-Y3wQdFg2Va6etvQ5I82yUhGdsKrcYox6p7FfL1LbK2J4V01F9TGlepTIhnK24t7koZibmg82KGglhA1XK5IsLQ==}
     engines: {node: '>=10'}
@@ -2369,6 +2381,8 @@ snapshots:
   magic-string@0.30.21:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  miniprogram-api-typings@5.2.1: {}
 
   mrmime@2.0.1: {}
 
