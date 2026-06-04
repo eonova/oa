@@ -1,23 +1,16 @@
 {
-  "name": "oa-opc-vue-tsx",
+  "name": "oa-opc",
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.27.0",
   "scripts": {
-    "dev": "vp dev --host 127.0.0.1",
-    "build": "vp build",
-    "preview": "vp preview --host 127.0.0.1",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "vue": "^3.5.35"
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "preview": "turbo run preview --filter=@oa/web"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.0",
-    "@vitejs/plugin-vue-jsx": "^5.1.5",
-    "tailwindcss": "^4.3.0",
-    "typescript": "^6.0.3",
-    "vite": "^8.0.16",
-    "vite-plus": "^0.1.24"
+    "turbo": "^2.9.16"
   }
 }
